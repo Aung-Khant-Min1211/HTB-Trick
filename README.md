@@ -333,6 +333,44 @@ restore state:
 
 ---
 
+## Evasion & Detection tradeoffs
+
+> The honest headline: **evasion is mostly a losing game against a competent,
+> instrumented defender.** You rarely become invisible — you become *slower,
+> quieter, and more expensive to catch*, trading away speed and reliability. The
+> goal isn't "no signal," it's "signal below the alert threshold or lost in the
+> noise floor." Each phase below: the loud version, the quieter version, and
+> **why quieter is hard.**
+
+| Phase | What's loud | Quieter (and its cost) | Why it's hard |
+|---|---|---|---|
+| **1. Port scan** | 65k connections in seconds → rate alert | `-T1`/`--scan-delay`, top-100 only, spread over hours/days, distribute source IPs — **cost: speed, coverage, infra** | You can't map ports without touching them. **There's no stealthy full scan, only a slow one.** |
+| **2. DNS AXFR** | One request, but unmistakable | Substitute `A`-record brute force (looks like normal resolution) — **cost: thousands of queries, only finds names you guess** | Some actions are *intrinsically* high-signal regardless of volume. |
+| **3. Vhost fuzz** | Thousands of odd `Host:` headers | Throttle, realistic UA/Referer, **use the leaked convention** (dozens not thousands) — **cost: speed** | A WAF baselining known-good `Host:` values flags *any* unknown vhost, even one. |
+| **4. LFI** | `....//etc/passwd`, `.ssh/id_rsa` = textbook signatures | Encoding/double-encoding; fetch innocuous files first — **cost: fails against normalize-then-match WAFs** | Reading a private key over HTTP is **semantically malicious** no matter the encoding. |
+| **5. SSH login** | Key login from new IP, right after web alerts | Log in during business hours; pivot through a host that normally talks to the target — **cost: patience, prior access** | **Correlation** beats evasion — a SIEM links scan→traversal→login into one story. |
+| **6. Privesc** | `chmod +s /bin/bash` = durable, scannable artifact | Reverse shell / one-shot command leaving nothing; immediate cleanup — **cost: complexity, FIM may already have snapshotted it** | Host artifacts are **asynchronous** — you're gone, the SUID bit waits for the next audit. |
+
+### Meta-lessons (the real payload)
+
+1. **Evasion trades speed and reliability for stealth.** On a deadline, you pick
+   your battles.
+2. **Good enumeration *is* evasion** — fewer, smarter requests beat brute force
+   on stealth *and* speed. The one free lunch.
+3. **You can beat a *signature*; you rarely beat *semantics*.** Encoding dodges
+   string matches, not the fact that an action is malicious. Mature detection
+   watches outcomes, not syntax.
+4. **Correlation is the defender's superpower.** Individual events hide;
+   *sequences* don't. Breaking one link rarely saves you.
+5. **Host artifacts are forever; network noise is fleeting.** Think hard before
+   leaving durable changes.
+6. **The best evasion is often a different, quieter *technique*** — not a
+   disguised loud one.
+7. **Everything an attacker does to evade teaches you what to detect.** Red
+   informs blue informs red.
+
+---
+
 ## Lessons to keep
 
 1. **Follow the evidence, don't guess.** Every step was unlocked by the previous
